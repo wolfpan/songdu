@@ -21,21 +21,35 @@ function toggleTheme() {
 </script>
 
 <template>
-  <header class="topbar">
-    <router-link class="brand" to="/">颂读</router-link>
-    <nav class="nav">
-      <router-link to="/">四经</router-link>
-      <router-link to="/marks">书签</router-link>
-    </nav>
-    <form class="search" @submit.prevent="submitSearch">
-      <input v-model="q" type="search" placeholder="搜索经文 / 白话…" aria-label="全文搜索" />
-    </form>
-    <template v-if="isRead">
-      <button class="icon-btn btn-tree" title="经目" @click="drawers.tree = !drawers.tree">☰</button>
-      <button class="icon-btn btn-tools" title="诵读助手" @click="drawers.tools = !drawers.tools">⚙</button>
+  <header class="topbar" :class="{ zen: settings.zen }">
+    <template v-if="!settings.zen">
+      <router-link class="brand" to="/">颂读</router-link>
+      <nav class="nav">
+        <router-link to="/">四经</router-link>
+        <router-link to="/marks">书签</router-link>
+      </nav>
+      <form class="search" @submit.prevent="submitSearch">
+        <input v-model="q" type="search" placeholder="搜索经文 / 白话…" aria-label="全文搜索" />
+      </form>
+      <template v-if="isRead">
+        <button class="icon-btn btn-tree" title="经目" @click="drawers.tree = !drawers.tree">☰</button>
+        <button class="icon-btn btn-tools" title="诵读助手" @click="drawers.tools = !drawers.tools">⚙</button>
+      </template>
     </template>
-    <button class="icon-btn" :title="settings.theme === 'light' ? '夜间' : '日间'" @click="toggleTheme">
+    <button
+      class="icon-btn"
+      :class="{ 'ml-a': settings.zen }"
+      :title="settings.theme === 'light' ? '夜间' : '日间'"
+      @click="toggleTheme"
+    >
       {{ settings.theme === 'light' ? '☾' : '☀' }}
+    </button>
+    <button
+      class="zen-btn"
+      :title="settings.zen ? '退出静读' : '静读模式'"
+      @click="settings.zen = !settings.zen"
+    >
+      {{ settings.zen ? '明' : '静' }}
     </button>
   </header>
 </template>
@@ -109,6 +123,28 @@ function toggleTheme() {
 .icon-btn:hover {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.ml-a {
+  margin-left: auto;
+}
+
+.zen-btn {
+  font-family: var(--font-kai);
+  font-size: 19px;
+  line-height: 1;
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.zen-btn:hover {
+  background: var(--accent-soft);
+}
+
+.topbar.zen {
+  background: transparent;
+  border-bottom-color: transparent;
 }
 
 /* 阅读页抽屉开关：仅窄视口显示（宽视口两栏常驻） */

@@ -42,6 +42,13 @@ export function toggleTag(key: string, tag: string) {
   save(key, { ...m, tags })
 }
 
+/** 仅移除标签（幂等）：✕ 按钮专用，重复点击不会把标签加回来 */
+export function removeTag(key: string, tag: string) {
+  const m = getMark(key)
+  if (!m.tags.includes(tag)) return
+  save(key, { ...m, tags: m.tags.filter((t) => t !== tag) })
+}
+
 export function allTags(): string[] {
   const set = new Set<string>()
   for (const m of Object.values(marks)) for (const t of m.tags) set.add(t)

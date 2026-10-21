@@ -68,6 +68,8 @@ export interface Settings {
   fontSize: number
   theme: 'light' | 'dark'
   font: 'serif' | 'kai'
+  /** 静读模式：隐藏顶栏菜单与左右栏，正文只留文字 */
+  zen: boolean
 }
 
 export interface Mark {

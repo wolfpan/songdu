@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { GlossaryEntry, Para } from '../types'
 import { settings } from '../store/settings'
-import { getMark, markKey, toggleStar, toggleTag, allTags } from '../store/marks'
+import { getMark, markKey, removeTag, toggleStar, toggleTag, allTags } from '../store/marks'
 import { openTerm } from '../store/termPop'
 import { segment } from '../lib/terms'
 
@@ -38,6 +38,7 @@ const oClass = computed(() => (settings.font === 'kai' ? 'font-kai' : 'font-seri
 
 const tagPop = ref(false)
 const termPop = ref(false)
+const zenPop = ref(false)
 const tagInput = ref('')
 
 function addTag() {
@@ -72,23 +73,61 @@ onUnmounted(() => io?.disconnect())
 
 <template>
   <article :id="'p-' + para.i" ref="root" class="para" :class="{ gatha: para.g }">
-    <div class="para-toolbar">
-      <button
-        class="tb-star"
-        :class="{ on: mark.star }"
-        :title="mark.star ? '取消收藏' : '收藏本段'"
-        @click="toggleStar(key, para.o.slice(0, 46))"
-      >
-        {{ mark.star ? '★' : '☆' }}
-      </button>
-      <button class="tb-pill" :class="{ on: mark.tags.length }" @click="tagPop = !tagPop; termPop = false">
-        标签<span v-if="mark.tags.length"> {{ mark.tags.length }}</span>
-      </button>
-      <button v-if="paraTerms.length" class="tb-link" @click="termPop = !termPop; tagPop = false">
-        术语解 {{ paraTerms.length }}
-      </button>
-      <button class="tb-icon" title="复制本段链接" @click="copyLink">⧉</button>
-      <span class="para-no">{{ para.i + 1 }} / {{ total }}</span>
+    <div class="para-toolbar" :class="{ zen: settings.zen, lit: zenPop }">
+      <template v-if="!settings.zen">
+        <button
+          class="tb-star"
+          :class="{ on: mark.star }"
+          :title="mark.star ? '取消收藏' : '收藏本段'"
+          @click="toggleStar(key, para.o.slice(0, 46))"
+        >
+          {{ mark.star ? '★' : '☆' }}
+        </button>
+        <button class="tb-pill" :class="{ on: mark.tags.length }" @click="tagPop = !tagPop; termPop = false">
+          标签<span v-if="mark.tags.length"> {{ mark.tags.length }}</span>
+        </button>
+        <button v-if="paraTerms.length" class="tb-link" @click="termPop = !termPop; tagPop = false">
+          术语解 {{ paraTerms.length }}
+        </button>
+        <button class="tb-icon" title="复制本段链接" @click="copyLink">⧉</button>
+        <span class="para-no">{{ para.i + 1 }} / {{ total }}</span>
+      </template>
+      <template v-else>
+        <button class="tb-icon" title="本段操作" @click="zenPop = !zenPop">⧉</button>
+      </template>
+    </div>
+
+    <div v-if="zenPop" class="pop" @click.stop>
+      <div class="pop-zen-row">
+        <button class="pop-act" :class="{ on: mark.star }" @click="toggleStar(key, para.o.slice(0, 46))">
+          {{ mark.star ? '★ 已收藏' : '☆ 收藏本段' }}
+        </button>
+        <button class="pop-act" @click="copyLink">⧉ 复制链接</button>
+        <span class="para-no">{{ para.i + 1 }} / {{ total }}</span>
+      </div>
+      <div class="pop-tags">
+        <button
+          v-for="t in mark.tags"
+          :key="t"
+          class="chip on"
+          :title="'移除标签 ' + t"
+          @click="removeTag(key, t)"
+        >
+          {{ t }} ✕
+        </button>
+        <button v-for="t in allTags().filter((x) => !mark.tags.includes(x)).slice(0, 8)" :key="t" class="chip" @click="toggleTag(key, t)">
+          + {{ t }}
+        </button>
+      </div>
+      <form class="pop-tag-add" @submit.prevent="addTag">
+        <input v-model="tagInput" placeholder="新标签，回车添加" />
+      </form>
+      <template v-if="paraTerms.length">
+        <div v-for="t in paraTerms" :key="t.term" class="pop-term">
+          <strong>{{ t.term }}</strong>
+          <span>{{ t.gloss }}</span>
+        </div>
+      </template>
     </div>
 
     <div v-if="tagPop" class="pop" @click.stop>
@@ -98,7 +137,7 @@ onUnmounted(() => io?.disconnect())
           :key="t"
           class="chip on"
           :title="'移除标签 ' + t"
-          @click="toggleTag(key, t)"
+          @click="removeTag(key, t)"
         >
           {{ t }} ✕
         </button>
@@ -155,6 +194,44 @@ onUnmounted(() => io?.disconnect())
   gap: 10px;
   margin-bottom: 10px;
   min-height: 24px;
+}
+
+.para-toolbar.zen {
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+
+.para:hover .para-toolbar.zen,
+.para-toolbar.zen.lit {
+  opacity: 1;
+}
+
+.pop-zen-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.pop-act {
+  font-size: 13px;
+  color: var(--ink-2);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.pop-act:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.pop-act.on {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.pop-zen-row .para-no {
+  margin-left: auto;
 }
 
 .tb-star {

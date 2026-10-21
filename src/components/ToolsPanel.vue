@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { ReadMode } from '../types'
 import { settings } from '../store/settings'
-import { glossarySize } from '../lib/terms'
 
 const props = defineProps<{ read?: number; total?: number }>()
 
@@ -13,7 +12,6 @@ const MODES: { key: ReadMode; label: string }[] = [
   { key: 'bai', label: '仅白话' },
 ]
 
-const glossOpen = ref(false)
 const pct = computed(() =>
   props.total ? Math.round(((props.read ?? 0) + 1) / props.total * 100) : 0,
 )
@@ -30,16 +28,12 @@ const pct = computed(() =>
           v-for="m in MODES"
           :key="m.key"
           class="tp-mode"
-          :class="{ on: settings.mode === m.key && !settings.vertical }"
+          :class="{ on: settings.mode === m.key }"
           @click="settings.mode = m.key"
         >
           {{ m.label }}
         </button>
       </div>
-      <label class="tp-row">
-        <span>竖排（如对古本）</span>
-        <input v-model="settings.vertical" type="checkbox" />
-      </label>
     </section>
 
     <section class="tp-sec">
@@ -78,17 +72,6 @@ const pct = computed(() =>
       <h3>本章进度</h3>
       <p class="tp-prog">读到第 {{ (read ?? 0) + 1 }} / {{ total }} 段 · {{ pct }}%</p>
       <div class="tp-bar"><i :style="{ width: pct + '%' }"></i></div>
-    </section>
-
-    <section class="tp-sec">
-      <h3>
-        <button class="tp-gloss-btn" @click="glossOpen = !glossOpen">
-          术语表（{{ glossarySize() }} 条）{{ glossOpen ? '▾' : '▸' }}
-        </button>
-      </h3>
-      <p v-if="glossOpen" class="tp-gloss-hint">
-        阅读页原文中的术语带点线下划线，点击即可查看释义。
-      </p>
     </section>
   </aside>
 </template>
@@ -198,20 +181,6 @@ const pct = computed(() =>
   height: 100%;
   background: var(--accent);
   transition: width 0.3s;
-}
-
-.tp-gloss-btn {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink-3);
-  letter-spacing: 1px;
-}
-
-.tp-gloss-hint {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--ink-2);
-  line-height: 1.7;
 }
 
 @media (max-width: 1200px) {

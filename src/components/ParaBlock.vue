@@ -28,11 +28,10 @@ const showO = computed(() => settings.mode !== 'bai')
 const showV = computed(() => settings.mode !== 'yuan')
 
 const bodyClass = computed(() => ({
-  'm-cols': settings.mode === 'cols' && !settings.vertical,
-  'm-stack': settings.mode === 'stack' && !settings.vertical,
-  'm-yuan': settings.mode === 'yuan' || settings.vertical,
+  'm-cols': settings.mode === 'cols',
+  'm-stack': settings.mode === 'stack',
+  'm-yuan': settings.mode === 'yuan',
   'm-bai': settings.mode === 'bai',
-  vertical: settings.vertical,
 }))
 
 const oClass = computed(() => (settings.font === 'kai' ? 'font-kai' : 'font-serif'))
@@ -297,22 +296,6 @@ onUnmounted(() => io?.disconnect())
 .para-o.font-kai {
   font-family: var(--font-ui);
   font-weight: 400;
-}
-
-.para-body.vertical {
-  display: block;
-  overflow-x: auto;
-  padding: 8px 4px 16px;
-}
-
-.para-body.vertical .para-o {
-  writing-mode: vertical-rl;
-  height: min(62vh, 560px);
-  line-height: 2.4;
-  letter-spacing: 0.12em;
-  margin: 0 auto;
-  width: max-content;
-  max-width: 100%;
 }
 
 .term {

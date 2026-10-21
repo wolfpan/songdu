@@ -2,7 +2,7 @@ import { reactive, watch } from 'vue'
 import type { Settings } from '../types'
 
 const KEY = 'songdu:settings'
-const defaults: Settings = { mode: 'cols', fontSize: 19, theme: 'light', vertical: false, font: 'serif' }
+const defaults: Settings = { mode: 'cols', fontSize: 19, theme: 'light', font: 'serif' }
 
 function load(): Settings {
   try {

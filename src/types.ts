@@ -67,7 +67,6 @@ export interface Settings {
   mode: ReadMode
   fontSize: number
   theme: 'light' | 'dark'
-  vertical: boolean
   font: 'serif' | 'kai'
 }
 

@@ -1,0 +1,86 @@
+:root {
+  --paper: #f4efe3;
+  --panel: #fbf8f0;
+  --panel-2: #f0ead9;
+  --ink: #2b2619;
+  --ink-2: #6d6353;
+  --ink-3: #9a8f7c;
+  --line: #e0d7c2;
+  --line-2: #cfc3a6;
+  --accent: #8a6a3b;
+  --accent-2: #a3814e;
+  --accent-soft: #efe5cd;
+  --mark: #f3e3b6;
+  --shadow: 0 1px 3px rgb(60 48 20 / 0.08), 0 8px 24px rgb(60 48 20 / 0.06);
+  --font-ui: 'LXGW WenKai Screen', 'Noto Serif SC', serif;
+  --font-serif: 'Noto Serif SC', serif;
+  --font-kai: 'Ma Shan Zheng', 'LXGW WenKai Screen', cursive;
+  --topbar-h: 52px;
+  --crumb-h: 42px;
+}
+
+[data-theme='dark'] {
+  --paper: #1c1712;
+  --panel: #241e16;
+  --panel-2: #2c251b;
+  --ink: #e6dcc6;
+  --ink-2: #b0a48c;
+  --ink-3: #857a64;
+  --line: #3a3225;
+  --line-2: #4d4331;
+  --accent: #c9a468;
+  --accent-2: #d8b87e;
+  --accent-soft: #37301f;
+  --mark: #57482a;
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+::selection {
+  background: var(--mark);
+}
+
+/* 细滚动条，贴合纸面 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

@@ -65,21 +65,20 @@ function onVol(e: Event) {
 
     <section class="tp-sec">
       <h3>字号与字体</h3>
-      <div class="tp-row">
-        <span>字号</span>
-        <span class="tp-fs">
-          <button @click="settings.fontSize = Math.max(14, settings.fontSize - 1)">A−</button>
-          <em>{{ settings.fontSize }}</em>
-          <button @click="settings.fontSize = Math.min(30, settings.fontSize + 1)">A＋</button>
+      <div class="tp-font-row">
+        <span class="tp-modes tp-modes-inline">
+          <button class="tp-mode" :class="{ on: settings.font === 'serif' }" @click="settings.font = 'serif'">
+            宋体
+          </button>
+          <button class="tp-mode" :class="{ on: settings.font === 'kai' }" @click="settings.font = 'kai'">
+            文楷
+          </button>
         </span>
-      </div>
-      <div class="tp-modes">
-        <button class="tp-mode" :class="{ on: settings.font === 'serif' }" @click="settings.font = 'serif'">
-          宋体
-        </button>
-        <button class="tp-mode" :class="{ on: settings.font === 'kai' }" @click="settings.font = 'kai'">
-          文楷
-        </button>
+        <span class="tp-fs">
+          <button title="减小字号" @click="settings.fontSize = Math.max(14, settings.fontSize - 1)">A−</button>
+          <em>{{ settings.fontSize }}</em>
+          <button title="增大字号" @click="settings.fontSize = Math.min(30, settings.fontSize + 1)">A＋</button>
+        </span>
       </div>
     </section>
 
@@ -221,6 +220,27 @@ function onVol(e: Event) {
   margin-bottom: 8px;
 }
 
+.tp-modes-inline {
+  margin-bottom: 0;
+}
+
+.tp-font-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.tp-font-row .tp-fs {
+  flex: 0 0 auto;
+}
+
+.tp-fs button {
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
 .tp-mode {
   padding: 4px 10px;
   border: 1px solid var(--line-2);
@@ -359,7 +379,7 @@ function onVol(e: Event) {
 @media (max-width: 1200px) {
   .tools {
     position: fixed;
-    top: calc(var(--topbar-h) + var(--crumb-h));
+    top: var(--topbar-h);
     bottom: 0;
     right: 0;
     z-index: 40;

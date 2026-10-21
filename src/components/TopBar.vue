@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { settings } from '../store/settings'
+import { drawers } from '../store/ui'
 
+const route = useRoute()
 const router = useRouter()
 const q = ref('')
+
+const isRead = computed(() => route.name === 'read')
 
 function submitSearch() {
   const kw = q.value.trim()
@@ -26,6 +30,10 @@ function toggleTheme() {
     <form class="search" @submit.prevent="submitSearch">
       <input v-model="q" type="search" placeholder="搜索经文 / 白话…" aria-label="全文搜索" />
     </form>
+    <template v-if="isRead">
+      <button class="icon-btn btn-tree" title="经目" @click="drawers.tree = !drawers.tree">☰</button>
+      <button class="icon-btn btn-tools" title="诵读助手" @click="drawers.tools = !drawers.tools">⚙</button>
+    </template>
     <button class="icon-btn" :title="settings.theme === 'light' ? '夜间' : '日间'" @click="toggleTheme">
       {{ settings.theme === 'light' ? '☾' : '☀' }}
     </button>
@@ -101,6 +109,24 @@ function toggleTheme() {
 .icon-btn:hover {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* 阅读页抽屉开关：仅窄视口显示（宽视口两栏常驻） */
+.btn-tree,
+.btn-tools {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .btn-tree {
+    display: inline-block;
+  }
+}
+
+@media (max-width: 1200px) {
+  .btn-tools {
+    display: inline-block;
+  }
 }
 
 @media (max-width: 640px) {

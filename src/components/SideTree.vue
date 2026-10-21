@@ -149,7 +149,7 @@ const totalParas = computed(() => (m: SutraMeta) => m.chapters.reduce((n, c) => 
 @media (max-width: 960px) {
   .side-tree {
     position: fixed;
-    top: calc(var(--topbar-h) + var(--crumb-h));
+    top: var(--topbar-h);
     bottom: 0;
     left: 0;
     z-index: 40;

@@ -104,7 +104,7 @@ onMounted(() => {
         </nav>
       </main>
 
-      <ToolsPanel :class="{ open: toolsOpen }" :read="readP" :total="chapter.paras.length" />
+      <ToolsPanel :class="{ open: toolsOpen }" />
     </div>
   </div>
   <p v-else class="loading">载入中…</p>
@@ -163,7 +163,9 @@ onMounted(() => {
 .read-cols {
   display: flex;
   align-items: stretch;
-  min-height: calc(100vh - var(--topbar-h) - var(--crumb-h));
+  /* 页面级不滚动：三栏各自独立滚动（左树/右栏固定于视口，中栏自由滚动） */
+  height: calc(100vh - var(--topbar-h) - var(--crumb-h));
+  overflow: hidden;
 }
 
 .read-main {
@@ -172,6 +174,7 @@ onMounted(() => {
   max-width: 980px;
   margin: 0 auto;
   padding: 26px 34px 80px;
+  overflow-y: auto;
 }
 
 .ch-head {

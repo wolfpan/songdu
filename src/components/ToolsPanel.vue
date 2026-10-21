@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { onUnmounted, reactive } from 'vue'
 import type { ReadMode } from '../types'
 import { settings } from '../store/settings'
-
-const props = defineProps<{ read?: number; total?: number }>()
+import * as chant from '../lib/buddha-audio'
+import { DURATIONS, fmt, timer, timerCancel, timerPause, timerResume, timerStart } from '../store/timer'
 
 const MODES: { key: ReadMode; label: string }[] = [
   { key: 'cols', label: '左右对照' },
@@ -12,14 +12,41 @@ const MODES: { key: ReadMode; label: string }[] = [
   { key: 'bai', label: '仅白话' },
 ]
 
-const pct = computed(() =>
-  props.total ? Math.round(((props.read ?? 0) + 1) / props.total * 100) : 0,
-)
+const st = reactive(chant.getState())
+const offState = chant.onState((s) => Object.assign(st, s))
+onUnmounted(offState)
+
+function onVol(e: Event) {
+  chant.setVolume(Number((e.target as HTMLInputElement).value) / 100)
+}
 </script>
 
 <template>
   <aside class="tools">
-    <h2 class="tp-title">诵读助手</h2>
+    <div class="tools-body">
+      <h2 class="tp-title">诵读助手</h2>
+
+    <section class="tp-sec">
+      <h3>学法倒计时</h3>
+      <template v-if="timer.state === 'idle'">
+        <div class="tp-chips">
+          <button v-for="m in DURATIONS" :key="m" class="tp-chip" @click="timerStart(m)">
+            {{ m }} 分钟
+          </button>
+        </div>
+        <p class="tp-hint">选定时长即开始，翻页不中断。</p>
+      </template>
+      <template v-else>
+        <div class="tp-clock" :class="{ done: timer.state === 'done' }">{{ fmt(timer.remainSec) }}</div>
+        <div class="tp-chips">
+          <button v-if="timer.state === 'run'" class="tp-chip" @click="timerPause">暂停</button>
+          <button v-else-if="timer.state === 'pause'" class="tp-chip on" @click="timerResume">继续</button>
+          <button v-else class="tp-chip on" @click="timerStart(timer.minutes)">再来一次</button>
+          <button class="tp-chip" @click="timerCancel">{{ timer.state === 'done' ? '收起' : '放弃' }}</button>
+          <span class="tp-total">{{ timer.state === 'done' ? '学法圆满' : '总长 ' + timer.minutes + ' 分钟' }}</span>
+        </div>
+      </template>
+    </section>
 
     <section class="tp-sec">
       <h3>显示</h3>
@@ -68,11 +95,47 @@ const pct = computed(() =>
       </div>
     </section>
 
-    <section v-if="total" class="tp-sec">
-      <h3>本章进度</h3>
-      <p class="tp-prog">读到第 {{ (read ?? 0) + 1 }} / {{ total }} 段 · {{ pct }}%</p>
-      <div class="tp-bar"><i :style="{ width: pct + '%' }"></i></div>
+    <section class="tp-sec">
+      <h3>梵音</h3>
+      <div class="tp-audio">
+        <button
+          class="tp-play"
+          :class="{ on: st.playing }"
+          :title="st.playing ? '暂停' : '播放'"
+          @click="chant.toggle()"
+        >
+          {{ st.playing ? '❚❚' : '▶' }}
+        </button>
+        <div class="tp-track">
+          <strong>{{ st.playing ? st.tracks[st.trackIdx].name : '梵音' }}</strong>
+          <em>{{ st.playing ? st.tracks[st.trackIdx].desc + ' · 循环' : '五曲 · 浏览器合成' }}</em>
+        </div>
+      </div>
+      <div class="tp-chips">
+        <button
+          v-for="(t, i) in st.tracks"
+          :key="t.id"
+          class="tp-chip"
+          :class="{ on: st.playing && st.trackIdx === i }"
+          @click="chant.playTrack(i)"
+        >
+          {{ t.name }}
+        </button>
+      </div>
+      <div class="tp-audio-ctl">
+        <button @click="chant.skip(-1)">‹ 上一曲</button>
+        <button @click="chant.skip(1)">下一曲 ›</button>
+      </div>
+      <label class="tp-row">
+        <span>音量</span>
+        <input class="tp-vol" type="range" min="0" max="100" :value="Math.round(st.volume * 100)" @input="onVol" />
+      </label>
     </section>
+    </div>
+
+    <footer class="tools-foot">
+      底本：《大正新修大藏经》公版经文 · 白话译文由 AI 生成，仅供参考
+    </footer>
   </aside>
 </template>
 
@@ -80,10 +143,26 @@ const pct = computed(() =>
 .tools {
   width: 250px;
   flex: 0 0 250px;
+  display: flex;
+  flex-direction: column;
   border-left: 1px solid var(--line);
   background: var(--panel);
+}
+
+.tools-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding: 14px 16px 40px;
+  padding: 14px 16px 24px;
+}
+
+.tools-foot {
+  flex: 0 0 auto;
+  padding: 9px 14px 12px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--ink-3);
 }
 
 .tp-title {
@@ -96,6 +175,35 @@ const pct = computed(() =>
 
 .tp-sec {
   margin-bottom: 18px;
+}
+
+.tp-clock {
+  margin: 2px 0 10px;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 34px;
+  line-height: 1.2;
+  text-align: center;
+  letter-spacing: 2px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.tp-clock.done {
+  color: var(--accent);
+}
+
+.tp-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.tp-total {
+  margin-left: auto;
+  align-self: center;
+  font-size: 12px;
+  color: var(--ink-3);
 }
 
 .tp-sec h3 {
@@ -132,15 +240,10 @@ const pct = computed(() =>
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   font-size: 13.5px;
   color: var(--ink-2);
   margin: 6px 0;
-}
-
-.tp-row input {
-  accent-color: var(--accent);
-  width: 16px;
-  height: 16px;
 }
 
 .tp-fs {
@@ -163,24 +266,94 @@ const pct = computed(() =>
   text-align: center;
 }
 
-.tp-prog {
-  margin: 0 0 6px;
-  font-size: 13px;
+.tp-audio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.tp-play {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 11px;
+  display: grid;
+  place-items: center;
+}
+
+.tp-play.on {
+  background: var(--accent);
+  color: var(--panel);
+}
+
+.tp-track {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tp-track strong {
+  font-family: var(--font-serif);
+  font-size: 14px;
+}
+
+.tp-track em {
+  font-style: normal;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tp-chip {
+  padding: 2px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  font-size: 12px;
   color: var(--ink-2);
 }
 
-.tp-bar {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line);
-  overflow: hidden;
+.tp-chip.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
-.tp-bar i {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.3s;
+.tp-audio-ctl {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.tp-audio-ctl button {
+  flex: 1;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  padding: 3px 0;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.tp-audio-ctl button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tp-vol {
+  flex: 1;
+  accent-color: var(--accent);
 }
 
 @media (max-width: 1200px) {

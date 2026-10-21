@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { GlossaryEntry, Para } from '../types'
 import { settings } from '../store/settings'
 import { getMark, markKey, removeTag, toggleStar, toggleTag, allTags } from '../store/marks'
@@ -40,6 +40,47 @@ const tagPop = ref(false)
 const termPop = ref(false)
 const zenPop = ref(false)
 const tagInput = ref('')
+
+/* 三个抽屉（标签 / 术语解 / 静读 ⧉）指针离开范围即自动收起。
+   判定范围 = 抽屉 + 触发按钮，边界按各自尺寸四边外扩 15%，避免鼠标小幅晃动误触；
+   触屏指针不参与。 */
+const PAD = 0.15
+const btnTag = ref<HTMLElement>()
+const btnTerm = ref<HTMLElement>()
+const btnZen = ref<HTMLElement>()
+const popTag = ref<HTMLElement>()
+const popTerm = ref<HTMLElement>()
+const popZen = ref<HTMLElement>()
+
+function insideRect(x: number, y: number, el: HTMLElement | undefined) {
+  if (!el) return false
+  const r = el.getBoundingClientRect()
+  const dx = r.width * PAD
+  const dy = r.height * PAD
+  return x >= r.left - dx && x <= r.right + dx && y >= r.top - dy && y <= r.bottom + dy
+}
+
+function onDocMove(e: PointerEvent) {
+  if (e.pointerType === 'touch') return
+  const pairs = [
+    [popTag.value, btnTag.value],
+    [popTerm.value, btnTerm.value],
+    [popZen.value, btnZen.value],
+  ]
+  for (const [pop, btn] of pairs) {
+    if (!pop) continue
+    if (insideRect(e.clientX, e.clientY, pop)) continue
+    if (insideRect(e.clientX, e.clientY, btn)) continue
+    zenPop.value = tagPop.value = termPop.value = false
+    return
+  }
+}
+
+watch([tagPop, termPop, zenPop], ([a, b, c]) => {
+  if (a || b || c) document.addEventListener('pointermove', onDocMove)
+  else document.removeEventListener('pointermove', onDocMove)
+})
+onUnmounted(() => document.removeEventListener('pointermove', onDocMove))
 
 function addTag() {
   const t = tagInput.value.trim()
@@ -83,21 +124,31 @@ onUnmounted(() => io?.disconnect())
         >
           {{ mark.star ? '★' : '☆' }}
         </button>
-        <button class="tb-pill" :class="{ on: mark.tags.length }" @click="tagPop = !tagPop; termPop = false">
+        <button
+          ref="btnTag"
+          class="tb-pill"
+          :class="{ on: mark.tags.length }"
+          @click="tagPop = !tagPop; termPop = false"
+        >
           标签<span v-if="mark.tags.length"> {{ mark.tags.length }}</span>
         </button>
-        <button v-if="paraTerms.length" class="tb-link" @click="termPop = !termPop; tagPop = false">
+        <button
+          v-if="paraTerms.length"
+          ref="btnTerm"
+          class="tb-link"
+          @click="termPop = !termPop; tagPop = false"
+        >
           术语解 {{ paraTerms.length }}
         </button>
         <button class="tb-icon" title="复制本段链接" @click="copyLink">⧉</button>
         <span class="para-no">{{ para.i + 1 }} / {{ total }}</span>
       </template>
       <template v-else>
-        <button class="tb-icon" title="本段操作" @click="zenPop = !zenPop">⧉</button>
+        <button ref="btnZen" class="tb-icon" title="本段操作" @click="zenPop = !zenPop">⧉</button>
       </template>
     </div>
 
-    <div v-if="zenPop" class="pop" @click.stop>
+    <div v-if="zenPop" ref="popZen" class="pop" @click.stop>
       <div class="pop-zen-row">
         <button class="pop-act" :class="{ on: mark.star }" @click="toggleStar(key, para.o.slice(0, 46))">
           {{ mark.star ? '★ 已收藏' : '☆ 收藏本段' }}
@@ -130,7 +181,7 @@ onUnmounted(() => io?.disconnect())
       </template>
     </div>
 
-    <div v-if="tagPop" class="pop" @click.stop>
+    <div v-if="tagPop" ref="popTag" class="pop" @click.stop>
       <div class="pop-tags">
         <button
           v-for="t in mark.tags"
@@ -150,7 +201,7 @@ onUnmounted(() => io?.disconnect())
       </form>
     </div>
 
-    <div v-if="termPop" class="pop" @click.stop>
+    <div v-if="termPop" ref="popTerm" class="pop" @click.stop>
       <div v-for="t in paraTerms" :key="t.term" class="pop-term">
         <strong>{{ t.term }}</strong>
         <span>{{ t.gloss }}</span>

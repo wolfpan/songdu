@@ -41,9 +41,9 @@ const termPop = ref(false)
 const zenPop = ref(false)
 const tagInput = ref('')
 
-/* 三个抽屉（标签 / 术语解 / 静读 ⧉）指针离开范围即自动收起。
+/* 三个抽屉（标签 / 术语解 / 静读 ⧉）自动收起：指针离开范围即收，点击范围外也收。
    判定范围 = 抽屉 + 触发按钮，边界按各自尺寸四边外扩 15%，避免鼠标小幅晃动误触；
-   触屏指针不参与。 */
+   触屏指针不参与移动判定。 */
 const PAD = 0.15
 const btnTag = ref<HTMLElement>()
 const btnTerm = ref<HTMLElement>()
@@ -60,14 +60,17 @@ function insideRect(x: number, y: number, el: HTMLElement | undefined) {
   return x >= r.left - dx && x <= r.right + dx && y >= r.top - dy && y <= r.bottom + dy
 }
 
-function onDocMove(e: PointerEvent) {
-  if (e.pointerType === 'touch') return
-  const pairs = [
+function popPairs() {
+  return [
     [popTag.value, btnTag.value],
     [popTerm.value, btnTerm.value],
     [popZen.value, btnZen.value],
-  ]
-  for (const [pop, btn] of pairs) {
+  ] as const
+}
+
+function onDocMove(e: PointerEvent) {
+  if (e.pointerType === 'touch') return
+  for (const [pop, btn] of popPairs()) {
     if (!pop) continue
     if (insideRect(e.clientX, e.clientY, pop)) continue
     if (insideRect(e.clientX, e.clientY, btn)) continue
@@ -76,11 +79,33 @@ function onDocMove(e: PointerEvent) {
   }
 }
 
+function onDocClick(e: MouseEvent) {
+  const t = e.target
+  if (!(t instanceof Element)) return
+  const pairs = popPairs()
+  // 点击触发按钮：开合/换抽屉由按钮自身的处理器管理，这里不干预
+  if (pairs.some(([, btn]) => btn && btn.contains(t))) return
+  for (const [pop] of pairs) {
+    if (!pop) continue
+    if (pop.contains(t)) continue
+    zenPop.value = tagPop.value = termPop.value = false
+    return
+  }
+}
+
 watch([tagPop, termPop, zenPop], ([a, b, c]) => {
-  if (a || b || c) document.addEventListener('pointermove', onDocMove)
-  else document.removeEventListener('pointermove', onDocMove)
+  if (a || b || c) {
+    document.addEventListener('pointermove', onDocMove)
+    document.addEventListener('click', onDocClick)
+  } else {
+    document.removeEventListener('pointermove', onDocMove)
+    document.removeEventListener('click', onDocClick)
+  }
 })
-onUnmounted(() => document.removeEventListener('pointermove', onDocMove))
+onUnmounted(() => {
+  document.removeEventListener('pointermove', onDocMove)
+  document.removeEventListener('click', onDocClick)
+})
 
 function addTag() {
   const t = tagInput.value.trim()

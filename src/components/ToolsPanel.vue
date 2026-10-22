@@ -133,7 +133,13 @@ function onVol(e: Event) {
     </div>
 
     <footer class="tools-foot">
-      底本：《大正新修大藏经》公版经文 · 白话译文由 AI 生成，仅供参考
+      底本：《大正新修大藏经》公版经 · 白话由 AI 生成，仅供参考。传法：<a
+        class="tools-foot-link"
+        href="https://github.com/wolfpan/songdu"
+        target="_blank"
+        rel="noopener"
+        >github</a
+      >
     </footer>
   </aside>
 </template>
@@ -162,6 +168,17 @@ function onVol(e: Event) {
   font-size: 11.5px;
   line-height: 1.7;
   color: var(--ink-3);
+}
+
+.tools-foot-link {
+  color: var(--ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+}
+
+.tools-foot-link:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink-3);
 }
 
 .tp-title {

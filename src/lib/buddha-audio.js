@@ -181,8 +181,13 @@ function chirp(t, f0, f1, dur, peak) {
   o.stop(t + dur + 0.1)
 }
 
-// 一记木鱼：噪声敲击瞬态 + 木质共鸣泛音
+// 一记木鱼：噪声敲击瞬态 + 木质共鸣泛音（低而闷，求温润不求亮）
 function muyuHit(t, peak) {
+  const lp = ctx.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.value = 1800
+  lp.connect(trackGain)
+  lp.connect(wetIn)
   const nlen = Math.floor(ctx.sampleRate * 0.05)
   const nbuf = ctx.createBuffer(1, nlen, ctx.sampleRate)
   const nd = nbuf.getChannelData(0)
@@ -191,28 +196,26 @@ function muyuHit(t, peak) {
   nsrc.buffer = nbuf
   const nf = ctx.createBiquadFilter()
   nf.type = 'bandpass'
-  nf.frequency.value = 1100
-  nf.Q.value = 1.2
+  nf.frequency.value = 700
+  nf.Q.value = 1.0
   const ng = ctx.createGain()
-  ng.gain.value = peak * 0.7
+  ng.gain.value = peak * 0.55
   nsrc.connect(nf)
   nf.connect(ng)
-  ng.connect(trackGain)
-  ng.connect(wetIn)
+  ng.connect(lp)
   nsrc.start(t)
-  ;[[820, 1], [1560, 0.5], [2480, 0.22]].forEach(([f, a]) => {
+  ;[[430, 1], [660, 0.45], [1050, 0.18]].forEach(([f, a]) => {
     const o = ctx.createOscillator()
     o.type = 'sine'
     o.frequency.value = f * (1 + (Math.random() - 0.5) * 0.01)
     const g = ctx.createGain()
     g.gain.setValueAtTime(0, t)
-    g.gain.linearRampToValueAtTime(peak * a, t + 0.004)
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09 + a * 0.12)
+    g.gain.linearRampToValueAtTime(peak * a, t + 0.006)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14 + a * 0.18)
     o.connect(g)
-    g.connect(trackGain)
-    g.connect(wetIn)
+    g.connect(lp)
     o.start(t)
-    o.stop(t + 0.4)
+    o.stop(t + 0.6)
   })
 }
 
@@ -286,13 +289,13 @@ const SCENES = {
       later(strike, 16000 + Math.random() * 9000)
     })()
   },
-  muyu() { // 木鱼：笃笃成节，偶有双击，静里闻声
+  muyu() { // 木鱼：笃笃成节，两三秒一击，偶有双击，静里闻声
     pad([98, 147], 0.018, 0.04)
     ;(function beat() {
       const t = now() + 0.05
-      muyuHit(t, 0.3)
-      if (Math.random() < 0.3) muyuHit(t + 0.26, 0.2)
-      later(beat, 1400 + Math.random() * 800)
+      muyuHit(t, 0.28)
+      if (Math.random() < 0.25) muyuHit(t + 0.3, 0.18)
+      later(beat, 2200 + Math.random() * 1000)
     })()
   },
 }

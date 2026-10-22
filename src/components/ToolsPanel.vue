@@ -107,7 +107,7 @@ function onVol(e: Event) {
         </button>
         <div class="tp-track">
           <strong>{{ st.playing ? st.tracks[st.trackIdx].name : '梵音' }}</strong>
-          <em>{{ st.playing ? st.tracks[st.trackIdx].desc + ' · 循环' : '五曲 · 浏览器合成' }}</em>
+          <em>{{ st.playing ? st.tracks[st.trackIdx].desc + ' · 循环' : '八曲 · 浏览器合成' }}</em>
         </div>
       </div>
       <div class="tp-chips">

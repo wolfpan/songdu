@@ -1,6 +1,6 @@
 /* ============================================================
    颂读 · 梵音引擎（复用自般若藏 audio.js，Web Audio 本地合成）
-   五曲：晨钟 / 颂钵 / 空山 / 梵音 / 夜雨
+   八曲：晨钟 / 颂钵 / 空山 / 鸟鸣 / 溪流 / 梵音 / 夜雨 / 木鱼
    引擎原样保留；自建底部控制条移除，状态经 onState 通知 UI。
    ============================================================ */
 
@@ -8,8 +8,11 @@ const TRACKS = [
   { id: 'dawn', name: '晨钟', desc: '古寺大钟 · 远山风息' },
   { id: 'bowl', name: '颂钵', desc: '钵音袅袅 · 泛音相和' },
   { id: 'mount', name: '空山', desc: '山岚虚静 · 偶闻孤磬' },
+  { id: 'birds', name: '鸟鸣', desc: '山间啼啭 · 婉转成趣' },
+  { id: 'stream', name: '溪流', desc: '流水潺潺 · 清泠入耳' },
   { id: 'drone', name: '梵音', desc: '低吟回荡 · 如海潮音' },
   { id: 'rain', name: '夜雨', desc: '檐雨点滴 · 钟声在远' },
+  { id: 'muyu', name: '木鱼', desc: '笃笃有节 · 静室清音' },
 ]
 const TRACK_SECONDS = 150 // 每曲约两分半后自动换下一曲，循环往复
 
@@ -107,7 +110,7 @@ function pad(freqs, level, breatheHz) {
   live.push(lfo)
 }
 
-// 循环噪声底（风 / 雨）
+// 循环噪声底（风 / 雨 / 溪）
 function noise(kind) {
   const len = ctx.sampleRate * 3
   const buf = ctx.createBuffer(1, len, ctx.sampleRate)
@@ -116,24 +119,18 @@ function noise(kind) {
   for (let i = 0; i < len; i++) {
     const w = Math.random() * 2 - 1
     last = (last + 0.02 * w) / 1.02 // 简单棕化
-    d[i] = kind === 'rain' ? w * 0.5 + last * 2.2 : last * 3.2
+    d[i] = kind === 'wind' ? last * 3.2 : w * 0.5 + last * 2.2
   }
   const src = ctx.createBufferSource()
   src.buffer = buf
   src.loop = true
   const f = ctx.createBiquadFilter()
-  if (kind === 'rain') {
-    f.type = 'bandpass'
-    f.frequency.value = 1400
-    f.Q.value = 0.5
-  } else {
-    f.type = 'lowpass'
-    f.frequency.value = 420
-  }
   const g = ctx.createGain()
   g.gain.value = 0
-  g.gain.linearRampToValueAtTime(kind === 'rain' ? 0.05 : 0.045, ctx.currentTime + 5)
+  g.gain.linearRampToValueAtTime(kind === 'stream' ? 0.07 : kind === 'rain' ? 0.05 : 0.045, ctx.currentTime + 5)
   if (kind === 'wind') { // 风的起伏
+    f.type = 'lowpass'
+    f.frequency.value = 420
     const lfo = ctx.createOscillator()
     lfo.frequency.value = 0.05
     const lg = ctx.createGain()
@@ -142,6 +139,22 @@ function noise(kind) {
     lg.connect(f.frequency)
     lfo.start()
     live.push(lfo)
+  } else if (kind === 'stream') { // 水声潺潺，缓缓起伏
+    f.type = 'bandpass'
+    f.frequency.value = 820
+    f.Q.value = 0.45
+    const lfo = ctx.createOscillator()
+    lfo.frequency.value = 0.13
+    const lg = ctx.createGain()
+    lg.gain.value = 0.02
+    lfo.connect(lg)
+    lg.connect(g.gain)
+    lfo.start()
+    live.push(lfo)
+  } else {
+    f.type = 'bandpass'
+    f.frequency.value = 1400
+    f.Q.value = 0.5
   }
   src.connect(f)
   f.connect(g)
@@ -149,6 +162,58 @@ function noise(kind) {
   if (kind === 'rain') g.connect(wetIn)
   src.start()
   live.push(src)
+}
+
+// 一声鸟啼：正弦快速滑频，短促婉转
+function chirp(t, f0, f1, dur, peak) {
+  const o = ctx.createOscillator()
+  o.type = 'sine'
+  o.frequency.setValueAtTime(f0, t)
+  o.frequency.exponentialRampToValueAtTime(f1, t + dur)
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(0, t)
+  g.gain.linearRampToValueAtTime(peak, t + dur * 0.15)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  o.connect(g)
+  g.connect(trackGain)
+  g.connect(wetIn)
+  o.start(t)
+  o.stop(t + dur + 0.1)
+}
+
+// 一记木鱼：噪声敲击瞬态 + 木质共鸣泛音
+function muyuHit(t, peak) {
+  const nlen = Math.floor(ctx.sampleRate * 0.05)
+  const nbuf = ctx.createBuffer(1, nlen, ctx.sampleRate)
+  const nd = nbuf.getChannelData(0)
+  for (let i = 0; i < nlen; i++) nd[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / nlen, 3)
+  const nsrc = ctx.createBufferSource()
+  nsrc.buffer = nbuf
+  const nf = ctx.createBiquadFilter()
+  nf.type = 'bandpass'
+  nf.frequency.value = 1100
+  nf.Q.value = 1.2
+  const ng = ctx.createGain()
+  ng.gain.value = peak * 0.7
+  nsrc.connect(nf)
+  nf.connect(ng)
+  ng.connect(trackGain)
+  ng.connect(wetIn)
+  nsrc.start(t)
+  ;[[820, 1], [1560, 0.5], [2480, 0.22]].forEach(([f, a]) => {
+    const o = ctx.createOscillator()
+    o.type = 'sine'
+    o.frequency.value = f * (1 + (Math.random() - 0.5) * 0.01)
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0, t)
+    g.gain.linearRampToValueAtTime(peak * a, t + 0.004)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09 + a * 0.12)
+    o.connect(g)
+    g.connect(trackGain)
+    g.connect(wetIn)
+    o.start(t)
+    o.stop(t + 0.4)
+  })
 }
 
 const later = (fn, ms) => timers.push(setTimeout(fn, ms))
@@ -183,6 +248,29 @@ const SCENES = {
       later(strike, 14000 + Math.random() * 12000)
     })()
   },
+  birds() { // 鸟鸣：啼啭成句，微风为底
+    noise('wind')
+    ;(function phrase() {
+      const notes = 2 + Math.floor(Math.random() * 5)
+      const base = 1700 + Math.random() * 1500
+      let t = now() + 0.1
+      for (let i = 0; i < notes; i++) {
+        const f = base * (0.85 + Math.random() * 0.4)
+        const up = Math.random() < 0.65
+        chirp(t, f, up ? f * (1.3 + Math.random() * 0.6) : f * (0.5 + Math.random() * 0.3),
+          0.07 + Math.random() * 0.13, 0.07 + Math.random() * 0.05)
+        t += 0.09 + Math.random() * 0.2
+      }
+      later(phrase, 2200 + Math.random() * 6500)
+    })()
+  },
+  stream() { // 溪流：水声为底，偶有水滴清响
+    noise('stream')
+    ;(function drop() {
+      bell(now() + 0.05, 1100 + Math.random() * 1600, 1.4, 0.045, 7000)
+      later(drop, 3500 + Math.random() * 8000)
+    })()
+  },
   drone() { // 梵音：低频和声回荡 + 极疏低钟
     pad([65.4, 98, 130.8, 196], 0.055, 0.03)
     ;(function strike() {
@@ -196,6 +284,15 @@ const SCENES = {
     ;(function strike() {
       bell(now() + 0.05, 110, 12, 0.26, 1600)
       later(strike, 16000 + Math.random() * 9000)
+    })()
+  },
+  muyu() { // 木鱼：笃笃成节，偶有双击，静里闻声
+    pad([98, 147], 0.018, 0.04)
+    ;(function beat() {
+      const t = now() + 0.05
+      muyuHit(t, 0.3)
+      if (Math.random() < 0.3) muyuHit(t + 0.26, 0.2)
+      later(beat, 1400 + Math.random() * 800)
     })()
   },
 }

@@ -122,9 +122,8 @@ function onVol(e: Event) {
         </button>
       </div>
       <div class="tp-audio-ctl">
-        <button @click="chant.skip(-1)">‹ 上一曲</button>
+        <button title="随机换一曲" @click="chant.playRandom()">随机</button>
         <button :class="{ on: st.loop }" title="单曲循环" @click="chant.toggleLoop()">单曲循环</button>
-        <button @click="chant.skip(1)">下一曲 ›</button>
       </div>
       <label class="tp-row">
         <span>音量</span>

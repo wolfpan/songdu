@@ -407,10 +407,16 @@ export function toggleLoop() {
   emitState()
 }
 
-export function skip(dir) {
+/** 随机换一曲（不与当前重复），并开始播放 */
+export function playRandom() {
+  ensureCtx()
+  resume()
   stopAll()
-  trackIdx = (trackIdx + dir + TRACKS.length) % TRACKS.length
-  if (playing) playScene()
+  let next = trackIdx
+  while (TRACKS.length > 1 && next === trackIdx) next = Math.floor(Math.random() * TRACKS.length)
+  trackIdx = next
+  playing = true
+  playScene()
   emitState()
 }
 

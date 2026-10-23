@@ -321,29 +321,32 @@ const SCENES = {
 }
 
 /* ---------- 播放控制 ---------- */
-function stopAll() {
+function stopAll(fadeSec = 3) { // 旧曲淡出：声源延迟到淡出结束才停，与新曲淡入重叠过渡
   timers.forEach(clearTimeout)
   timers = []
-  live.forEach((n) => {
-    try {
-      n.stop()
-    } catch (e) {
-      /* already stopped */
-    }
-  })
-  live = []
-  if (trackGain) {
-    const g = trackGain
-    g.gain.linearRampToValueAtTime(0, now() + 1.2)
+  const g = trackGain
+  if (g) {
+    const t = now()
+    g.gain.cancelScheduledValues(t)
+    g.gain.setValueAtTime(g.gain.value, t)
+    g.gain.linearRampToValueAtTime(0, t + fadeSec)
     setTimeout(() => {
       try {
         g.disconnect()
       } catch (e) {
         /* disconnected */
       }
-    }, 1500)
-    trackGain = null
+    }, (fadeSec + 0.3) * 1000)
   }
+  live.forEach((n) => {
+    try {
+      n.stop(now() + fadeSec + 0.1)
+    } catch (e) {
+      /* already stopped */
+    }
+  })
+  live = []
+  trackGain = null
 }
 
 function playScene() {
@@ -393,7 +396,7 @@ export function start() {
 
 export function stop() {
   playing = false
-  stopAll()
+  stopAll(1.5)
   emitState()
 }
 

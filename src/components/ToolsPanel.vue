@@ -107,7 +107,7 @@ function onVol(e: Event) {
         </button>
         <div class="tp-track">
           <strong>{{ st.playing ? st.tracks[st.trackIdx].name : '梵音' }}</strong>
-          <em>{{ st.playing ? st.tracks[st.trackIdx].desc + ' · 循环' : '八曲 · 浏览器合成' }}</em>
+          <em>{{ st.playing ? st.tracks[st.trackIdx].desc + (st.loop ? ' · 单曲循环' : ' · 循环') : '八曲 · 浏览器合成' }}</em>
         </div>
       </div>
       <div class="tp-chips">
@@ -123,6 +123,7 @@ function onVol(e: Event) {
       </div>
       <div class="tp-audio-ctl">
         <button @click="chant.skip(-1)">‹ 上一曲</button>
+        <button :class="{ on: st.loop }" title="单曲循环" @click="chant.toggleLoop()">单曲循环</button>
         <button @click="chant.skip(1)">下一曲 ›</button>
       </div>
       <label class="tp-row">
@@ -381,6 +382,13 @@ function onVol(e: Event) {
   padding: 3px 0;
   font-size: 12px;
   color: var(--ink-2);
+}
+
+.tp-audio-ctl button.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .tp-audio-ctl button:hover {

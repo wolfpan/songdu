@@ -22,6 +22,7 @@ let wetIn = null // 混响输入
 let trackGain = null // 当前曲目增益（切曲淡出用）
 let playing = false
 let trackIdx = 0
+let loop = false // 单曲循环
 let volume = 0.75
 let timers = [] // setTimeout 句柄
 let live = [] // 需要停止的持续声源
@@ -127,7 +128,10 @@ function noise(kind) {
   const f = ctx.createBiquadFilter()
   const g = ctx.createGain()
   g.gain.value = 0
-  g.gain.linearRampToValueAtTime(kind === 'stream' ? 0.07 : kind === 'rain' ? 0.05 : 0.045, ctx.currentTime + 5)
+  g.gain.linearRampToValueAtTime(
+    kind === 'stream' ? 0.06 : kind === 'stream-hi' ? 0.014 : kind === 'rain' ? 0.05 : 0.045,
+    ctx.currentTime + 5
+  )
   if (kind === 'wind') { // 风的起伏
     f.type = 'lowpass'
     f.frequency.value = 420
@@ -139,18 +143,41 @@ function noise(kind) {
     lg.connect(f.frequency)
     lfo.start()
     live.push(lfo)
-  } else if (kind === 'stream') { // 水声潺潺，缓缓起伏
+  } else if (kind === 'stream') { // 水声潺潺：双波起伏 + 水路缓移
     f.type = 'bandpass'
-    f.frequency.value = 820
-    f.Q.value = 0.45
-    const lfo = ctx.createOscillator()
-    lfo.frequency.value = 0.13
-    const lg = ctx.createGain()
-    lg.gain.value = 0.02
-    lfo.connect(lg)
-    lg.connect(g.gain)
-    lfo.start()
-    live.push(lfo)
+    f.frequency.value = 640
+    f.Q.value = 0.4
+    ;[[0.11, 0.016], [0.31, 0.009]].forEach(([hz, depth]) => {
+      const lfo = ctx.createOscillator()
+      lfo.frequency.value = hz
+      const lg = ctx.createGain()
+      lg.gain.value = depth
+      lfo.connect(lg)
+      lg.connect(g.gain)
+      lfo.start()
+      live.push(lfo)
+    })
+    const wl = ctx.createOscillator()
+    wl.frequency.value = 0.07
+    const wg = ctx.createGain()
+    wg.gain.value = 110
+    wl.connect(wg)
+    wg.connect(f.frequency)
+    wl.start()
+    live.push(wl)
+  } else if (kind === 'stream-hi') { // 涓滴细碎的高频闪烁
+    f.type = 'highpass'
+    f.frequency.value = 3200
+    ;[[0.5, 0.006], [0.09, 0.005]].forEach(([hz, depth]) => {
+      const lfo = ctx.createOscillator()
+      lfo.frequency.value = hz
+      const lg = ctx.createGain()
+      lg.gain.value = depth
+      lfo.connect(lg)
+      lg.connect(g.gain)
+      lfo.start()
+      live.push(lfo)
+    })
   } else {
     f.type = 'bandpass'
     f.frequency.value = 1400
@@ -179,6 +206,24 @@ function chirp(t, f0, f1, dur, peak) {
   g.connect(wetIn)
   o.start(t)
   o.stop(t + dur + 0.1)
+}
+
+// 一粒水泡：正弦上滑短音，如水下咕嘟
+function plop(t, peak) {
+  const o = ctx.createOscillator()
+  o.type = 'sine'
+  const f0 = 320 + Math.random() * 380
+  o.frequency.setValueAtTime(f0, t)
+  o.frequency.exponentialRampToValueAtTime(f0 * (2.2 + Math.random()), t + 0.09 + Math.random() * 0.05)
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(0, t)
+  g.gain.linearRampToValueAtTime(peak, t + 0.008)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16)
+  o.connect(g)
+  g.connect(trackGain)
+  g.connect(wetIn)
+  o.start(t)
+  o.stop(t + 0.25)
 }
 
 // 一记木鱼：噪声敲击瞬态 + 木质共鸣泛音（低而闷，求温润不求亮）
@@ -267,11 +312,14 @@ const SCENES = {
       later(phrase, 2200 + Math.random() * 6500)
     })()
   },
-  stream() { // 溪流：水声为底，偶有水滴清响
+  stream() { // 溪流：低吟水底 + 高频碎响 + 成串水泡
     noise('stream')
-    ;(function drop() {
-      bell(now() + 0.05, 1100 + Math.random() * 1600, 1.4, 0.045, 7000)
-      later(drop, 3500 + Math.random() * 8000)
+    noise('stream-hi')
+    ;(function bloop() {
+      const t = now() + 0.05
+      const n = 1 + Math.floor(Math.random() * 3)
+      for (let i = 0; i < n; i++) plop(t + i * (0.12 + Math.random() * 0.1), 0.03 + Math.random() * 0.025)
+      later(bloop, 1200 + Math.random() * 2800)
     })()
   },
   drone() { // 梵音：低频和声回荡 + 极疏低钟
@@ -335,11 +383,11 @@ function playScene() {
   scheduleRotate()
 }
 
-function scheduleRotate() { // 列表循环：一曲约 150 秒后换下一曲
+function scheduleRotate() { // 列表循环：一曲约 150 秒后换下一曲；单曲循环时原曲重来
   later(() => {
     if (!playing) return
     stopAll()
-    trackIdx = (trackIdx + 1) % TRACKS.length
+    if (!loop) trackIdx = (trackIdx + 1) % TRACKS.length
     playScene()
     emitState()
   }, TRACK_SECONDS * 1000)
@@ -347,10 +395,10 @@ function scheduleRotate() { // 列表循环：一曲约 150 秒后换下一曲
 
 /* ---------- 对外 API ---------- */
 export function getState() {
-  return { playing, trackIdx, volume, tracks: TRACKS }
+  return { playing, trackIdx, loop, volume, tracks: TRACKS }
 }
 
-/** @param {(s: { playing: boolean; trackIdx: number; volume: number; tracks: { id: string; name: string; desc: string }[] }) => void} fn */
+/** @param {(s: { playing: boolean; trackIdx: number; loop: boolean; volume: number; tracks: { id: string; name: string; desc: string }[] }) => void} fn */
 export function onState(fn) {
   listeners.push(fn)
   return () => {
@@ -379,6 +427,12 @@ export function stop() {
 
 export function toggle() {
   playing ? stop() : start()
+}
+
+/** 单曲循环开／关 */
+export function toggleLoop() {
+  loop = !loop
+  emitState()
 }
 
 export function skip(dir) {

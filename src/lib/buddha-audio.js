@@ -9,7 +9,7 @@ const TRACKS = [
   { id: 'bowl', name: '颂钵', desc: '钵音袅袅 · 泛音相和' },
   { id: 'mount', name: '空山', desc: '山岚虚静 · 偶闻孤磬' },
   { id: 'birds', name: '鸟鸣', desc: '山间啼啭 · 婉转成趣' },
-  { id: 'stream', name: '溪流', desc: '流水潺潺 · 清泠入耳' },
+  { id: 'stream', name: '溪流', desc: '涧水如练 · 浑厚连绵' },
   { id: 'drone', name: '梵音', desc: '低吟回荡 · 如海潮音' },
   { id: 'rain', name: '夜雨', desc: '檐雨点滴 · 钟声在远' },
   { id: 'muyu', name: '木鱼', desc: '笃笃有节 · 静室清音' },
@@ -120,7 +120,7 @@ function noise(kind) {
   for (let i = 0; i < len; i++) {
     const w = Math.random() * 2 - 1
     last = (last + 0.02 * w) / 1.02 // 简单棕化
-    d[i] = kind === 'wind' ? last * 3.2 : w * 0.5 + last * 2.2
+    d[i] = kind === 'wind' ? last * 3.2 : kind === 'rain' ? w * 0.5 + last * 2.2 : last * 3.2 + w * 0.3
   }
   const src = ctx.createBufferSource()
   src.buffer = buf
@@ -129,7 +129,7 @@ function noise(kind) {
   const g = ctx.createGain()
   g.gain.value = 0
   g.gain.linearRampToValueAtTime(
-    kind === 'stream' ? 0.06 : kind === 'stream-hi' ? 0.014 : kind === 'rain' ? 0.05 : 0.045,
+    kind === 'stream' ? 0.075 : kind === 'stream-wash' ? 0.035 : kind === 'rain' ? 0.05 : 0.045,
     ctx.currentTime + 5
   )
   if (kind === 'wind') { // 风的起伏
@@ -143,41 +143,37 @@ function noise(kind) {
     lg.connect(f.frequency)
     lfo.start()
     live.push(lfo)
-  } else if (kind === 'stream') { // 水声潺潺：双波起伏 + 水路缓移
+  } else if (kind === 'stream') { // 水底浑厚，缓缓呼吸
+    f.type = 'lowpass'
+    f.frequency.value = 380
+    const lfo = ctx.createOscillator()
+    lfo.frequency.value = 0.09
+    const lg = ctx.createGain()
+    lg.gain.value = 0.02
+    lfo.connect(lg)
+    lg.connect(g.gain)
+    lfo.start()
+    live.push(lfo)
+  } else if (kind === 'stream-wash') { // 中层水色，水路缓移
     f.type = 'bandpass'
-    f.frequency.value = 640
-    f.Q.value = 0.4
-    ;[[0.11, 0.016], [0.31, 0.009]].forEach(([hz, depth]) => {
-      const lfo = ctx.createOscillator()
-      lfo.frequency.value = hz
-      const lg = ctx.createGain()
-      lg.gain.value = depth
-      lfo.connect(lg)
-      lg.connect(g.gain)
-      lfo.start()
-      live.push(lfo)
-    })
+    f.frequency.value = 900
+    f.Q.value = 0.6
+    const lfo = ctx.createOscillator()
+    lfo.frequency.value = 0.17
+    const lg = ctx.createGain()
+    lg.gain.value = 0.012
+    lfo.connect(lg)
+    lg.connect(g.gain)
+    lfo.start()
+    live.push(lfo)
     const wl = ctx.createOscillator()
-    wl.frequency.value = 0.07
+    wl.frequency.value = 0.05
     const wg = ctx.createGain()
-    wg.gain.value = 110
+    wg.gain.value = 150
     wl.connect(wg)
     wg.connect(f.frequency)
     wl.start()
     live.push(wl)
-  } else if (kind === 'stream-hi') { // 涓滴细碎的高频闪烁
-    f.type = 'highpass'
-    f.frequency.value = 3200
-    ;[[0.5, 0.006], [0.09, 0.005]].forEach(([hz, depth]) => {
-      const lfo = ctx.createOscillator()
-      lfo.frequency.value = hz
-      const lg = ctx.createGain()
-      lg.gain.value = depth
-      lfo.connect(lg)
-      lg.connect(g.gain)
-      lfo.start()
-      live.push(lfo)
-    })
   } else {
     f.type = 'bandpass'
     f.frequency.value = 1400
@@ -206,24 +202,6 @@ function chirp(t, f0, f1, dur, peak) {
   g.connect(wetIn)
   o.start(t)
   o.stop(t + dur + 0.1)
-}
-
-// 一粒水泡：正弦上滑短音，如水下咕嘟
-function plop(t, peak) {
-  const o = ctx.createOscillator()
-  o.type = 'sine'
-  const f0 = 320 + Math.random() * 380
-  o.frequency.setValueAtTime(f0, t)
-  o.frequency.exponentialRampToValueAtTime(f0 * (2.2 + Math.random()), t + 0.09 + Math.random() * 0.05)
-  const g = ctx.createGain()
-  g.gain.setValueAtTime(0, t)
-  g.gain.linearRampToValueAtTime(peak, t + 0.008)
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16)
-  o.connect(g)
-  g.connect(trackGain)
-  g.connect(wetIn)
-  o.start(t)
-  o.stop(t + 0.25)
 }
 
 // 一记木鱼：噪声敲击瞬态 + 木质共鸣泛音（低而闷，求温润不求亮）
@@ -312,15 +290,9 @@ const SCENES = {
       later(phrase, 2200 + Math.random() * 6500)
     })()
   },
-  stream() { // 溪流：低吟水底 + 高频碎响 + 成串水泡
+  stream() { // 溪流：浑厚水底 + 中层水色，连贯如练，无沙无泡
     noise('stream')
-    noise('stream-hi')
-    ;(function bloop() {
-      const t = now() + 0.05
-      const n = 1 + Math.floor(Math.random() * 3)
-      for (let i = 0; i < n; i++) plop(t + i * (0.12 + Math.random() * 0.1), 0.03 + Math.random() * 0.025)
-      later(bloop, 1200 + Math.random() * 2800)
-    })()
+    noise('stream-wash')
   },
   drone() { // 梵音：低频和声回荡 + 极疏低钟
     pad([65.4, 98, 130.8, 196], 0.055, 0.03)
